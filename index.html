@@ -514,6 +514,7 @@ async function fetchGrades() {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`No data found for ${regNo}. Please check the register number.`);
     const data = await res.json();
+    console.log('Full API response:', JSON.stringify(data, null, 2));
     renderResults(data, displayReg);
   } catch (e) {
     errorMsg.textContent = e.message || 'Failed to fetch data. Try again.';
@@ -553,16 +554,19 @@ function renderResults(data, displayReg) {
   const earned = tables.filter(r => r.Grade && !['F','U','P'].includes(r.Grade.toUpperCase()))
                         .reduce((s, r) => s + (parseFloat(r.Credits) || 0), 0);
 
-  // CGPA from curriculum details
-  let cgpa = data.cgpa || '';
-  if (!cgpa && curriculum.length) {
-    const last = curriculum[curriculum.length - 1];
-    cgpa = last.CGPA || last.cgpa || '';
-  }
-  if (!cgpa) {
-    // try to find in raw data
-    cgpa = data.cgpa || (data.student_information && data.student_information.cgpa) || '—';
-  }
+  // Calculate CGPA from grades and credits
+  const gradePoints = { 'S': 10, 'A+': 10, 'A': 9, 'B': 8, 'C': 7, 'D': 6, 'E': 5, 'F': 0, 'U': 0 };
+  let totalWeighted = 0;
+  let totalGradeCredits = 0;
+  tables.forEach(r => {
+    const grade = (r.Grade || '').trim().toUpperCase();
+    const credits = parseFloat((r.Credits || '').replace(/[^0-9.]/g, ''));
+    if (!isNaN(credits) && credits > 0 && gradePoints.hasOwnProperty(grade)) {
+      totalWeighted += gradePoints[grade] * credits;
+      totalGradeCredits += credits;
+    }
+  });
+  let cgpa = totalGradeCredits > 0 ? (totalWeighted / totalGradeCredits).toFixed(2) : '—';
 
   const semCount = Object.keys(semesters).length;
 
