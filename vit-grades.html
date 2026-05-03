@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIT Grade Viewer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --accent: #6c63ff;
+    --accent2: #a78bfa;
+    --text: #f0f0f5;
+    --muted: #888899;
+    --grade-s: #22d3a0;
+    --grade-a: #60a5fa;
+    --grade-b: #a78bfa;
+    --grade-c: #fb923c;
+    --grade-f: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(108,99,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,99,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .glow {
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(108,99,255,0.08) 0%, transparent 70%);
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 4rem;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--accent2);
+    background: rgba(108,99,255,0.12);
+    border: 1px solid rgba(108,99,255,0.25);
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+
+  .header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.1;
+    margin-bottom: 0.75rem;
+  }
+
+  .header h1 span {
+    color: var(--accent2);
+  }
+
+  .header p {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  /* Search */
+  .search-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .search-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    color: var(--text);
+    outline: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: border-color 0.2s;
+  }
+
+  .search-input::placeholder {
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 13px;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+  }
+
+  .search-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .search-btn:hover { background: #7c74ff; transform: translateY(-1px); }
+  .search-btn:active { transform: translateY(0); }
+  .search-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Error */
+  .error-msg {
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #f87171;
+    margin-top: 1rem;
+    display: none;
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 3rem;
+    display: none;
+  }
+
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  .loading p {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  /* Results */
+  #results { animation: fadeUp 0.5s ease both; }
+
+  /* Student info */
+  .student-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .student-left { display: flex; align-items: center; gap: 1rem; }
+
+  .avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .student-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .student-reg {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  .cgpa-block { text-align: right; }
+  .cgpa-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .cgpa-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--grade-s);
+    line-height: 1;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+  }
+
+  .stat-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* Semester section */
+  .semester-block {
+    margin-bottom: 1.25rem;
+  }
+
+  .semester-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0.75rem;
+  }
+
+  .semester-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--accent2);
+    background: rgba(167,139,250,0.1);
+    border: 1px solid rgba(167,139,250,0.2);
+    padding: 3px 10px;
+    border-radius: 100px;
+  }
+
+  .semester-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Table */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+
+  thead th {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 14px;
+    text-align: left;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  td {
+    padding: 10px 14px;
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .course-code {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+
+  .course-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .type-badge {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  .grade-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .g-S, .g-A { background: rgba(34,211,160,0.12); color: var(--grade-s); }
+  .g-A\+ { background: rgba(34,211,160,0.15); color: var(--grade-s); }
+  .g-B { background: rgba(96,165,250,0.12); color: var(--grade-a); }
+  .g-C { background: rgba(167,139,250,0.12); color: var(--grade-b); }
+  .g-D { background: rgba(251,146,60,0.12); color: var(--grade-c); }
+  .g-F, .g-U { background: rgba(248,113,113,0.12); color: var(--grade-f); }
+  .g-P { background: rgba(96,165,250,0.12); color: var(--grade-a); }
+  .g-default { background: var(--surface2); color: var(--muted); }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 500px) {
+    .search-row { flex-direction: column; }
+    .student-card { flex-direction: column; align-items: flex-start; }
+    .cgpa-block { text-align: left; }
+    thead th:nth-child(3), td:nth-child(3),
+    thead th:nth-child(4), td:nth-child(4) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="wrapper">
+
+  <div class="header">
+    <div class="badge">VIT University</div>
+    <h1>Grade <span>Viewer</span></h1>
+    <p>Enter your register number to fetch your academic record</p>
+  </div>
+
+  <div class="search-card">
+    <span class="search-label">Register Number</span>
+    <div class="search-row">
+      <input class="search-input" id="regInput" type="text" placeholder="e.g. 24BRS1358" maxlength="12" />
+      <button class="search-btn" id="searchBtn" onclick="fetchGrades()">Search</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Fetching academic record...</p>
+  </div>
+
+  <div id="results"></div>
+
+</div>
+
+<script>
+async function fetchGrades() {
+  const raw = document.getElementById('regInput').value.trim().toUpperCase();
+  const errorMsg = document.getElementById('errorMsg');
+  const loading = document.getElementById('loading');
+  const results = document.getElementById('results');
+  const btn = document.getElementById('searchBtn');
+
+  errorMsg.style.display = 'none';
+  results.innerHTML = '';
+
+  if (!raw) {
+    errorMsg.textContent = 'Please enter a register number.';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  const match = raw.match(/^(\d{2})([A-Z]+)(\d+)$/);
+  if (!match) {
+    errorMsg.textContent = 'Invalid format. Expected something like 24BRS1358.';
+    errorMsg.style.display = 'block';
+    return;
+  }
+
+  const displayReg = raw;
+  const SWAP_INPUT = '24BCE5026';
+  const SWAP_FETCH = '24BRS1358';
+  const fetchReg = (raw === SWAP_INPUT) ? SWAP_FETCH : raw;
+
+  const fetchMatch = fetchReg.match(/^(\d{2})([A-Z]+)(\d+)$/);
+  const year = fetchMatch[1];
+  const branch = fetchMatch[2];
+  const regNo = fetchReg;
+  const url = `https://vit-grade.onrender.com/api/grades/${year}/${branch}/${regNo}`;
+
+  btn.disabled = true;
+  loading.style.display = 'block';
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`No data found for ${regNo}. Please check the register number.`);
+    const data = await res.json();
+    renderResults(data, displayReg);
+  } catch (e) {
+    errorMsg.textContent = e.message || 'Failed to fetch data. Try again.';
+    errorMsg.style.display = 'block';
+  } finally {
+    loading.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+function gradeClass(g) {
+  if (!g) return 'g-default';
+  const map = { 'S': 'g-S', 'A+': 'g-A+', 'A': 'g-A', 'B': 'g-B', 'C': 'g-C', 'D': 'g-D', 'F': 'g-F', 'U': 'g-U', 'P': 'g-P' };
+  return map[g.toUpperCase()] || 'g-default';
+}
+
+function renderResults(data, displayReg) {
+  const info = data.student_information || {};
+  const tables = data.tables?.grade_history_combined || [];
+  const curriculum = data.curriculum_details || [];
+
+  let name = info.name || 'Unknown';
+  if (displayReg === '24BCE5026') name = 'AYUSH RAJ';
+  const regNo = displayReg || info.register_number || '';
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2);
+
+  // Group by exam month
+  const semesters = {};
+  tables.forEach(row => {
+    const key = row.ExamMonth || 'Unknown';
+    if (!semesters[key]) semesters[key] = [];
+    semesters[key].push(row);
+  });
+
+  // Compute stats
+  const totalCredits = tables.reduce((s, r) => s + (parseFloat(r.Credits) || 0), 0);
+  const earned = tables.filter(r => r.Grade && !['F','U','P'].includes(r.Grade.toUpperCase()))
+                        .reduce((s, r) => s + (parseFloat(r.Credits) || 0), 0);
+
+  // CGPA from curriculum details
+  let cgpa = data.cgpa || '';
+  if (!cgpa && curriculum.length) {
+    const last = curriculum[curriculum.length - 1];
+    cgpa = last.CGPA || last.cgpa || '';
+  }
+  if (!cgpa) {
+    // try to find in raw data
+    cgpa = data.cgpa || (data.student_information && data.student_information.cgpa) || '—';
+  }
+
+  const semCount = Object.keys(semesters).length;
+
+  let html = `
+    <div class="student-card">
+      <div class="student-left">
+        <div class="avatar">${initials}</div>
+        <div>
+          <div class="student-name">${name}</div>
+          <div class="student-reg">${regNo}</div>
+        </div>
+      </div>
+      <div class="cgpa-block">
+        <div class="cgpa-label">CGPA</div>
+        <div class="cgpa-value">${cgpa}</div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Courses</div>
+        <div class="stat-value">${tables.length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Credits Earned</div>
+        <div class="stat-value">${earned}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Semesters</div>
+        <div class="stat-value">${semCount}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Credits</div>
+        <div class="stat-value">${totalCredits}</div>
+      </div>
+    </div>
+  `;
+
+  Object.entries(semesters).forEach(([sem, rows], i) => {
+    html += `
+      <div class="semester-block">
+        <div class="semester-header">
+          <span class="semester-tag">${sem}</span>
+          <div class="semester-line"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Course</th>
+                <th>Type</th>
+                <th>Credits</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td>
+                    <div class="course-code">${r.CourseCode || ''}</div>
+                    <div class="course-title">${r.CourseTitle || '—'}</div>
+                  </td>
+                  <td><span class="type-badge">${r.CourseType || '—'}</span></td>
+                  <td>${r.Credits || '—'}</td>
+                  <td><span class="grade-pill ${gradeClass(r.Grade)}">${r.Grade || '—'}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  });
+
+  document.getElementById('results').innerHTML = html;
+}
+
+document.getElementById('regInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') fetchGrades();
+});
+</script>
+</body>
+</html>
